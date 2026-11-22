@@ -69,6 +69,30 @@ npm run dev
 | 批量查询 | `batch_query` | 批量任务 | 任务编号、关联API、查询清单 |
 | SDK配置 | `sdk_config` | SDK配置 | 配置编号、关联API、SDK语言 |
 
+## 订阅费用归属（用量计量 × 订阅管理）
+
+用量计量在「按调用方、API、月份累计」之外，新增调用明细与有效订阅的关联计算，
+生成可用于出账的订阅费用归属明细；订阅管理按已核定金额形成各自账期明细。
+
+- `usage_billing.record_call_detail`：记录调用明细并生成归属明细。只有调用发生时
+  有效且匹配调用方和 API 的订阅可以承接费用；恰好一个候选订阅即时核定，否则金额
+  挂待核。任何时点：归属金额 + 待核余额 ≡ 原调用金额。
+- `usage_billing.submit_evidence`：补录订阅凭据并核定归属。按调用编号加 flock
+  互斥锁，并发/重复补录只确认一次；账期已封账时由订阅管理在后续账期补记。
+- `subscription.close_billing_period`：封账，按已核定金额形成各订阅账期明细，
+  待核调用保留待核余额并留下封账快照（封账依据）；封账只能进行一次。
+- `usage_billing.call_trail` / `attribution_report`：沿调用编号回溯事件流
+  （封账依据、待核余额变化）与补记/冲正记录，重新出具归属明细。
+- 归属状态持久化在 `data/attribution/`（JSON 文件，原子替换写入），进程重启后
+  仍可追查。
+
+场景测试（同一团队两份重叠订阅，8 元先出账 + 12 元待核，封账前/后补凭据，
+合计始终 20 元）：
+
+```bash
+cd backend && python3 tests/test_usage_attribution.py
+```
+
 ## 约定
 
 - 全部模块共享`frontend/src/views/WorkbenchView.vue|tsx`和一套资源路由。
